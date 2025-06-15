@@ -21,6 +21,7 @@
 #include <thread>
 #include <chrono>
 #include "physicManager.h"
+#include "light.h"
 
 // AABB 線框的頂點數據
 float aabbVertices[] = {
@@ -97,10 +98,6 @@ bool pausePhysics = false;
 float gravityStrength = 9.8f;
 bool resetBall = false;
 bool resetIrregular = false;
-
-// Removed ball and mini room related variables
-bool light1Enabled = true; // 第一個光源開關
-bool light2Enabled = true; // 第二個光源開關
 
 // 修改 Object 初始化，加入阻尼參數
 Object irregularObj(
@@ -193,6 +190,9 @@ int main() {
         glViewport(0, 0, 1600, 1200);
         glEnable(GL_DEPTH_TEST);
     #pragma endregion
+      // 在 OpenGL 上下文創建後初始化光源管理器
+    LightManager lightManager;
+    lightManager.initLightMarkerBuffers(); // 手動初始化 OpenGL 緩衝區
     
     #pragma region Init ImGui
     // 初始化 ImGui
@@ -219,9 +219,7 @@ int main() {
     
     // 為 irregularVertices 物件創建 VAO 和 VBO
     unsigned int irregularVAO, irregularVBO;
-    setupModelBuffers(irregularVAO, irregularVBO, irregularVertices, irregularCount);
-    
-    // 為 ball 物件創建 VAO 和 VBO
+    setupModelBuffers(irregularVAO, irregularVBO, irregularVertices, irregularCount);    // 為 ball 物件創建 VAO 和 VBO
     unsigned int ballVAO, ballVBO;
     setupModelBuffers(ballVAO, ballVBO, ballVertices, ballCount);
 
@@ -312,17 +310,13 @@ int main() {
         }
         if (ImGui::SliderFloat("Yaw", &yaw_deg, -180.0f, 180.0f)) {
             camera.Yaw = glm::radians(yaw_deg);
-            camera_updated = true;
-        }
+            camera_updated = true;        }
         if (camera_updated) {
             camera.UpdateCameraVectors();
             viewMat = camera.GetViewMatrix();
         }
-
-        ImGui::Separator();
-        ImGui::Text("Light Controls");
-        ImGui::Checkbox("Light 1 Enabled", &light1Enabled);
-        ImGui::Checkbox("Light 2 Enabled", &light2Enabled);
+        
+        lightManager.renderImGuiControls();
         /*
         ImGui::Separator();
         ImGui::Text("AABB Controls");
@@ -361,15 +355,10 @@ int main() {
         #pragma endregion
     
         // 設置視口為整個窗口
-        glViewport(0, 0, 1600, 1200);
-        myShader->use();
+        glViewport(0, 0, 1600, 1200);        myShader->use();
         glUniform3f(glGetUniformLocation(myShader->ID, "ambientColor"), 1.0f, 1.0f, 1.0f);
-        glUniform3f(glGetUniformLocation(myShader->ID, "lightPos"), 0.0f, 0.0f, 0.0f);
-        glUniform3f(glGetUniformLocation(myShader->ID, "lightColor"), 0.5f, 0.5f, 0.5f);
-        glUniform3f(glGetUniformLocation(myShader->ID, "lightPos2"), 0.0f, 0.0f, 0.0f);
-        glUniform3f(glGetUniformLocation(myShader->ID, "lightColor2"), 0.2f, 0.7f, 0.9f);
-        glUniform1i(glGetUniformLocation(myShader->ID, "light1Enabled"), light1Enabled);
-        glUniform1i(glGetUniformLocation(myShader->ID, "light2Enabled"), light2Enabled);
+        lightManager.applyAllLightsToShader(*myShader);
+        glUniform3f(glGetUniformLocation(myShader->ID, "cameraPos"), camera.Position.x, camera.Position.y, camera.Position.z);;
 
         #pragma region Create room   
         glActiveTexture(GL_TEXTURE0);
@@ -423,9 +412,13 @@ int main() {
             std::cerr << "OpenGL Error after drawing collision volumes: " << err << std::endl;
         }
         // Draw the OBB for the irregular object
-        OBB::DrawOBB(irregularObj.GetOBB(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
-        AABB::DrawAABB(roomAABB, myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
+        OBB::DrawOBB(irregularObj.GetOBB(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());        AABB::DrawAABB(roomAABB, myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
         glUniform1i(glGetUniformLocation(myShader->ID, "isAABB"), 0);
+        #pragma endregion
+
+        #pragma region Draw Light Markers
+        // 使用 LightManager 渲染光源標記
+        lightManager.renderLightMarkers(*myShader, viewMat, projMat);
         #pragma endregion
         
         glBindVertexArray(0);

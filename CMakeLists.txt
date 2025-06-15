@@ -29,6 +29,7 @@ add_executable(3DRender
     OBB.cpp
     object.cpp
     physicManager.cpp
+    light.cpp
     ${IMGUI_SOURCES}
 )
 
