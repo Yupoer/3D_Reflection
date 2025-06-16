@@ -21,6 +21,7 @@
 #include <thread>
 #include <chrono>
 #include "physicManager.h"
+#include "Shadow.h"
 #include "light.h"
 
 // AABB 線框的頂點數據
@@ -98,6 +99,7 @@ bool pausePhysics = false;
 float gravityStrength = 9.8f;
 bool resetBall = false;
 bool resetIrregular = false;
+bool showShadows = true; // Toggle for shadows
 
 // 修改 Object 初始化，加入阻尼參數
 Object irregularObj(
@@ -161,11 +163,11 @@ int main() {
             printf("Failed to initialize GLFW\n");
             return -1;
         }
-
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
+        glfwWindowHint(GLFW_STENCIL_BITS, 8);  // 啟用 stencil buffer
+        
         GLFWwindow* window = glfwCreateWindow(1600, 1200, "3D render", NULL, NULL);
         if (window == NULL) {
             const char* description;
@@ -177,6 +179,14 @@ int main() {
 
         glfwMakeContextCurrent(window);
         //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        
+        // 檢查 stencil buffer 是否正確創建
+        int stencilBits;
+        glGetIntegerv(GL_STENCIL_BITS, &stencilBits);
+        printf("Stencil buffer bits: %d\n", stencilBits);
+        if (stencilBits == 0) {
+            printf("Warning: No stencil buffer available\n");
+        }
   
 
         // init GLEW
@@ -185,14 +195,27 @@ int main() {
             std::cerr << "Failed to initialize GLEW" << std::endl;
             glfwTerminate();
             return -1;
-        }
-
-        glViewport(0, 0, 1600, 1200);
+        }        glViewport(0, 0, 1600, 1200);
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_STENCIL_TEST);  // 啟用 stencil testing
     #pragma endregion
-      // 在 OpenGL 上下文創建後初始化光源管理器
+    
+    #pragma region Init Shadow System
+    // 初始化陰影系統
+    ShadowRenderer shadowRenderer;
+    if (!shadowRenderer.initialize("shadow.vert", "shadow.frag")) {
+        printf("Failed to initialize shadow system\n");
+    } else {
+        printf("Shadow system initialized successfully\n");
+    }    shadowRenderer.setGroundPlane(0.0f, 1.0f, 0.0f, 0.0f); // y = 0 平面
+    shadowRenderer.setShadowAlpha(0.4f); // 設置陰影透明度
+    #pragma endregion
+    
+    #pragma region Init Light Manager
+    // 初始化光源管理器
     LightManager lightManager;
     lightManager.initLightMarkerBuffers(); // 手動初始化 OpenGL 緩衝區
+    #pragma endregion
     
     #pragma region Init ImGui
     // 初始化 ImGui
@@ -219,7 +242,9 @@ int main() {
     
     // 為 irregularVertices 物件創建 VAO 和 VBO
     unsigned int irregularVAO, irregularVBO;
-    setupModelBuffers(irregularVAO, irregularVBO, irregularVertices, irregularCount);    // 為 ball 物件創建 VAO 和 VBO
+    setupModelBuffers(irregularVAO, irregularVBO, irregularVertices, irregularCount);
+    
+    // 為 ball 物件創建 VAO 和 VBO
     unsigned int ballVAO, ballVBO;
     setupModelBuffers(ballVAO, ballVBO, ballVertices, ballCount);
 
@@ -281,10 +306,9 @@ int main() {
 
         // Process input
         processInput(window);
-            
-        // Clear screen
+              // Clear screen
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         #pragma region ImGui Frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -310,13 +334,18 @@ int main() {
         }
         if (ImGui::SliderFloat("Yaw", &yaw_deg, -180.0f, 180.0f)) {
             camera.Yaw = glm::radians(yaw_deg);
-            camera_updated = true;        }
+            camera_updated = true;
+        }
         if (camera_updated) {
             camera.UpdateCameraVectors();
-            viewMat = camera.GetViewMatrix();
-        }
-        
+            viewMat = camera.GetViewMatrix();        }
+
+        // 使用 LightManager 的 GUI 控制
         lightManager.renderImGuiControls();
+        
+        ImGui::Separator();
+        ImGui::Text("Shadow Controls");
+        ImGui::Checkbox("Show Shadows", &showShadows);
         /*
         ImGui::Separator();
         ImGui::Text("AABB Controls");
@@ -342,23 +371,20 @@ int main() {
             ballObj.applyImpulse(impulse, ballObj.getWorldCenterOfMass());
             // Apply to irregularObj
             irregularObj.applyImpulse(impulse, irregularObj.getWorldCenterOfMass());
-        }
-
-        if (ImGui::Button("Reset")) {
+        }        if (ImGui::Button("Reset")) {
             resetBall = true;
             ballObj.reset();
             resetIrregular = true;
-            irregularObj.reset();
-        }
+            irregularObj.reset();        }
         
         ImGui::End();
-        #pragma endregion
-    
-        // 設置視口為整個窗口
-        glViewport(0, 0, 1600, 1200);        myShader->use();
+        #pragma endregion        // 設置視口為整個窗口
+        glViewport(0, 0, 1600, 1200);
+        myShader->use();
         glUniform3f(glGetUniformLocation(myShader->ID, "ambientColor"), 1.0f, 1.0f, 1.0f);
+        
+        // 使用 LightManager 應用光源到 shader
         lightManager.applyAllLightsToShader(*myShader);
-        glUniform3f(glGetUniformLocation(myShader->ID, "cameraPos"), camera.Position.x, camera.Position.y, camera.Position.z);;
 
         #pragma region Create room   
         glActiveTexture(GL_TEXTURE0);
@@ -401,32 +427,44 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
         glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
         glBindVertexArray(ballVAO);
-        glDrawArrays(GL_TRIANGLES, 0, ballCount);
-
-        // 繪製 Bounding Sphere
-        glUseProgram(myShader->ID);
-        // Draw the bounding sphere for the ball object
+        glDrawArrays(GL_TRIANGLES, 0, ballCount);        // 繪製 Bounding Sphere
+        glUseProgram(myShader->ID);        // Draw the bounding sphere for the ball object
         AABB::DrawWireSphere(ballObj.GetBoundingSphere(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
-        GLenum err;
-        while ((err = glGetError()) != GL_NO_ERROR) {
-            std::cerr << "OpenGL Error after drawing collision volumes: " << err << std::endl;
-        }
+        
         // Draw the OBB for the irregular object
-        OBB::DrawOBB(irregularObj.GetOBB(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());        AABB::DrawAABB(roomAABB, myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
-        glUniform1i(glGetUniformLocation(myShader->ID, "isAABB"), 0);
+        OBB::DrawOBB(irregularObj.GetOBB(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
+        AABB::DrawAABB(roomAABB, myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());glUniform1i(glGetUniformLocation(myShader->ID, "isAABB"), 0);
         #pragma endregion
-
-        #pragma region Draw Light Markers
-        // 使用 LightManager 渲染光源標記
+          #pragma region Render Shadows
+        shadowRenderer.setEnabled(showShadows);
+        if (showShadows && shadowRenderer.isEnabled()) {
+            // 使用 LightManager 中的第一個光源進行陰影投射
+            if (lightManager.getLightCount() > 0) {
+                const Light& light = lightManager.getLight(0);
+                if (light.isEnabled()) {
+                    // 渲染不規則物體的陰影
+                    shadowRenderer.renderShadow(irregularModelMat, viewMat, projMat, irregularVAO, irregularCount, light);
+                    // 渲染球體的陰影
+                    shadowRenderer.renderShadow(ballModelMat, viewMat, projMat, ballVAO, ballCount, light);
+                }
+            }
+        }        
+        #pragma endregion
+        
+        #pragma region Render Light Markers (Small white dots for positional lights)
+        // 渲染位置光源的小白點標記（只有 Positional 光源才顯示）
         lightManager.renderLightMarkers(*myShader, viewMat, projMat);
-        #pragma endregion
+        #pragma endregion          glBindVertexArray(0);
         
-        glBindVertexArray(0);
-        
-        // 檢查 OpenGL 錯誤
-        while ((err = glGetError()) != GL_NO_ERROR) {
-            std::cerr << "OpenGL Error: " << err << std::endl;
+        // 檢查 OpenGL 錯誤 (只在 debug 模式下或需要時啟用)
+        #ifdef DEBUG_OPENGL_ERRORS
+        {
+            GLenum err = glGetError();
+            if (err != GL_NO_ERROR) {
+                std::cerr << "OpenGL Error: " << err << std::endl;
+            }
         }
+        #endif
         
         #pragma region Render ImGui
         ImGui::Render();

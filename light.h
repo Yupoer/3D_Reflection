@@ -13,17 +13,16 @@ enum class LightType {
 class Light {
 public:
     LightType type;
-    glm::vec3 position;      // 所有光源都有位置（方向光源的位置用於顯示標記）
-    glm::vec3 direction;     // 方向光源使用，位置光源可忽略
-    glm::vec3 rotation;      // 旋轉角度 (度)，所有光源都可以旋轉
+    glm::vec3 position;      // 位置光源使用
+    glm::vec3 direction;     // 方向光源使用
+    glm::vec3 rotation;      // 旋轉角度 (度)，方向光源使用
     glm::vec3 color;
     float intensity;
     bool enabled;
 
     // 構造函數
     Light(LightType lightType, glm::vec3 pos_or_dir, glm::vec3 lightColor = glm::vec3(1.0f), float lightIntensity = 1.0f);
-    
-    // 設置光源屬性
+      // 設置光源屬性
     void setPosition(const glm::vec3& pos);
     void setDirection(const glm::vec3& dir);
     void setRotation(const glm::vec3& rot);
@@ -36,8 +35,7 @@ public:
     glm::vec3 getDirection() const;
     glm::vec3 getRotation() const;
     glm::vec3 getColor() const;
-    float getIntensity() const;
-    bool isEnabled() const;
+    float getIntensity() const;bool isEnabled() const;
     LightType getType() const;
     
     // 更新方向基於旋轉
@@ -45,8 +43,7 @@ public:
     
     // 應用光源到 shader
     void applyToShader(Shader& shader, const std::string& uniformBaseName) const;
-    
-    // ImGui 控制界面
+      // ImGui 控制界面
     void renderImGuiControls(const std::string& lightName, bool isSelected);
 };
 
@@ -54,7 +51,6 @@ class LightManager {
 private:
     std::vector<Light> lights;
     unsigned int lightMarkerVAO, lightMarkerVBO;
-    int selectedLightIndex; // 當前選中的光源索引，-1 表示沒有選中
     
 public:
     LightManager();
@@ -72,10 +68,6 @@ public:
     Light& getLight(size_t index);
     const Light& getLight(size_t index) const;
     size_t getLightCount() const;
-    
-    // 選擇光源
-    void setSelectedLight(int index);
-    int getSelectedLight() const;
     
     // 應用所有光源到 shader
     void applyAllLightsToShader(Shader& shader) const;

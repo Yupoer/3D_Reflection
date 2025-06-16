@@ -3,7 +3,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <GL/glew.h>
 
-// 光源頂點
+// 光源標記（白點）的頂點數據 - 小立方體
 static float lightMarkerVertices[] = {
     // 前面
     -0.1f, -0.1f, -0.1f,  0.0f, 0.0f,  0.0f, 0.0f, -1.0f,
@@ -54,6 +54,7 @@ static float lightMarkerVertices[] = {
     -0.1f,  0.1f, -0.1f,  0.0f, 1.0f,  0.0f, 1.0f, 0.0f
 };
 
+// Light 類實現
 Light::Light(LightType lightType, glm::vec3 pos_or_dir, glm::vec3 lightColor, float lightIntensity)
     : type(lightType), color(lightColor), intensity(lightIntensity), enabled(true), rotation(0.0f, 0.0f, 0.0f) {
     if (lightType == LightType::POSITIONAL) {
@@ -75,10 +76,6 @@ void Light::setPosition(const glm::vec3& pos) {
 
 void Light::setDirection(const glm::vec3& dir) {
     direction = glm::normalize(dir);
-    // 更新旋轉角度
-    rotation.x = glm::degrees(asin(-direction.y));
-    rotation.y = glm::degrees(atan2(direction.x, direction.z));
-    rotation.z = 0.0f;
 }
 
 void Light::setRotation(const glm::vec3& rot) {
@@ -106,6 +103,10 @@ glm::vec3 Light::getDirection() const {
     return direction;
 }
 
+glm::vec3 Light::getRotation() const {
+    return rotation;
+}
+
 glm::vec3 Light::getColor() const {
     return color;
 }
@@ -120,10 +121,6 @@ bool Light::isEnabled() const {
 
 LightType Light::getType() const {
     return type;
-}
-
-glm::vec3 Light::getRotation() const {
-    return rotation;
 }
 
 void Light::updateDirectionFromRotation() {
@@ -143,8 +140,7 @@ void Light::updateDirectionFromRotation() {
 }
 
 void Light::applyToShader(Shader& shader, const std::string& uniformBaseName) const {
-    if (!enabled) return;
-    
+    if (!enabled) return;    
     if (type == LightType::POSITIONAL) {
         glUniform3f(glGetUniformLocation(shader.ID, uniformBaseName.c_str()), position.x, position.y, position.z);
         std::string colorUniform = uniformBaseName.substr(0, uniformBaseName.length() - 3) + "Color";
@@ -164,47 +160,47 @@ void Light::renderImGuiControls(const std::string& lightName, bool isSelected) {
         ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.2f, 0.7f, 0.2f, 0.8f)); // 綠色表示選中
     }
     
-    if (ImGui::CollapsingHeader(lightName.c_str())) {
+    bool headerExpanded = ImGui::CollapsingHeader(lightName.c_str());
+    
+    if (isSelected) {
+        ImGui::PopStyleColor(); // 在這裡就 Pop，無論 header 是否展開
+    }
+    
+    if (headerExpanded) {
+        // 使用 lightName 作為唯一 ID 前綴來避免 ImGui ID 衝突
+        ImGui::PushID(lightName.c_str());
+        
         ImGui::Checkbox("Enabled", &enabled);
-        
-        // 所有光源都可以調整位置
-        if (ImGui::SliderFloat3("Position", glm::value_ptr(position), 0.0f, 10.0f)) {
-            // 位置改變時不需要特殊處理
-        }
-        
-        // 所有光源都可以調整旋轉
-        if (ImGui::SliderFloat3("Rotation (degrees)", glm::value_ptr(rotation), -180.0f, 180.0f)) {
-            if (type == LightType::DIRECTIONAL) {
-                updateDirectionFromRotation();
-            }
-        }
         
         if (type == LightType::POSITIONAL) {
             ImGui::Text("Type: Positional Light");
+            // 位置光源只顯示位置控制，不顯示旋轉
+            if (ImGui::SliderFloat3("Position", glm::value_ptr(position), 0.0f, 10.0f)) {
+                // 位置改變時不需要特殊處理
+            }
         } else {
             ImGui::Text("Type: Directional Light");
+            // 方向光源只顯示旋轉控制，不顯示位置
+            if (ImGui::SliderFloat3("Rotation (degrees)", glm::value_ptr(rotation), -180.0f, 180.0f)) {
+                this->updateDirectionFromRotation();
+            }
             ImGui::Text("Direction: (%.2f, %.2f, %.2f)", direction.x, direction.y, direction.z);
         }
         
-        ImGui::ColorEdit3("Color", glm::value_ptr(color));
+        // 光源顏色固定為白色，不顯示顏色控制
         ImGui::SliderFloat("Intensity", &intensity, 0.0f, 3.0f);
-    }
-    
-    if (isSelected) {
-        ImGui::PopStyleColor();
+        
+        ImGui::PopID(); // 結束唯一 ID 範圍
     }
 }
 
 // LightManager 類實現
-LightManager::LightManager() : lightMarkerVAO(0), lightMarkerVBO(0), selectedLightIndex(-1) {
-    // 添加預設光源
-    addPositionalLight(glm::vec3(2.0f, 8.0f, 2.0f), glm::vec3(0.5f, 0.5f, 0.5f));
-    addDirectionalLight(glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec3(0.2f, 0.7f, 0.9f));
+LightManager::LightManager() : lightMarkerVAO(0), lightMarkerVBO(0) {
+    // 添加預設光源，顏色為白色 (1,1,1)
+    addPositionalLight(glm::vec3(2.0f, 8.0f, 2.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+    addDirectionalLight(glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec3(1.0f, 1.0f, 1.0f));
     
-    // 預設選中第一個光源
-    selectedLightIndex = 0;
-    
-    // 不在構造函數中初始化 OpenGL 緩衝區，稍後手動初始化
+    initLightMarkerBuffers();
 }
 
 LightManager::~LightManager() {
@@ -263,16 +259,6 @@ size_t LightManager::getLightCount() const {
     return lights.size();
 }
 
-void LightManager::setSelectedLight(int index) {
-    if (index >= -1 && index < static_cast<int>(lights.size())) {
-        selectedLightIndex = index;
-    }
-}
-
-int LightManager::getSelectedLight() const {
-    return selectedLightIndex;
-}
-
 void LightManager::applyAllLightsToShader(Shader& shader) const {
     // 應用第一個光源（位置光源）
     if (lights.size() > 0) {
@@ -303,71 +289,24 @@ void LightManager::renderImGuiControls() {
     ImGui::Separator();
     ImGui::Text("Light Controls");
     
-    // 光源選擇區域
-    ImGui::Text("Select Light to Edit:");
     for (size_t i = 0; i < lights.size(); ++i) {
-        std::string buttonLabel;
-        if (lights[i].getType() == LightType::POSITIONAL) {
-            buttonLabel = "Positional " + std::to_string(i + 1);
+        std::string lightName;        if (lights[i].getType() == LightType::POSITIONAL) {
+            lightName = "Positional Light " + std::to_string(i + 1);
         } else {
-            buttonLabel = "Directional " + std::to_string(i + 1);
+            lightName = "Directional Light " + std::to_string(i + 1);
         }
-        
-        if (static_cast<int>(i) == selectedLightIndex) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 0.8f)); // 綠色表示選中
-        }
-        
-        if (ImGui::Button(buttonLabel.c_str(), ImVec2(120, 0))) {
-            selectedLightIndex = static_cast<int>(i);
-        }
-        
-        if (static_cast<int>(i) == selectedLightIndex) {
-            ImGui::PopStyleColor();
-        }
-        
-        if (i < lights.size() - 1) {
-            ImGui::SameLine();
-        }
-    }
-    
-    ImGui::Separator();
-    
-    // 顯示選中光源的詳細控制
-    if (selectedLightIndex >= 0 && selectedLightIndex < static_cast<int>(lights.size())) {
-        std::string lightName;
-        if (lights[selectedLightIndex].getType() == LightType::POSITIONAL) {
-            lightName = "Positional Light " + std::to_string(selectedLightIndex + 1);
-        } else {
-            lightName = "Directional Light " + std::to_string(selectedLightIndex + 1);
-        }
-        lights[selectedLightIndex].renderImGuiControls(lightName, true);
-    } else {
-        ImGui::Text("No light selected");
+        lights[i].renderImGuiControls(lightName, false); // 假設沒有選中狀態
     }
 }
 
 void LightManager::renderLightMarkers(Shader& shader, const glm::mat4& view, const glm::mat4& projection) {
-    // 如果緩衝區未初始化，則不渲染
-    if (lightMarkerVAO == 0) return;
+    // 設置白色顏色
+    glUniform3f(glGetUniformLocation(shader.ID, "objColor"), 1.0f, 1.0f, 1.0f);
     
-    // 渲染所有光源的標記（不論類型）
-    for (size_t i = 0; i < lights.size(); ++i) {
-        const auto& light = lights[i];
-        if (light.isEnabled()) {
-            // 根據光源類型設置不同的顏色
-            if (light.getType() == LightType::POSITIONAL) {
-                // 位置光源顯示為白色
-                glUniform3f(glGetUniformLocation(shader.ID, "objColor"), 1.0f, 1.0f, 1.0f);
-            } else {
-                // 方向光源顯示為黃色
-                glUniform3f(glGetUniformLocation(shader.ID, "objColor"), 1.0f, 1.0f, 0.0f);
-            }
-            
-            // 選中的光源顯示為綠色
-            if (static_cast<int>(i) == selectedLightIndex) {
-                glUniform3f(glGetUniformLocation(shader.ID, "objColor"), 0.0f, 1.0f, 0.0f);
-            }
-              glm::mat4 lightModelMat = glm::translate(glm::mat4(1.0f), light.getPosition());
+    // 渲染所有位置光源的標記
+    for (const auto& light : lights) {
+        if (light.getType() == LightType::POSITIONAL && light.isEnabled()) {
+            glm::mat4 lightModelMat = glm::translate(glm::mat4(1.0f), light.getPosition());
             glUniformMatrix4fv(glGetUniformLocation(shader.ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(lightModelMat));
             glUniformMatrix4fv(glGetUniformLocation(shader.ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(view));
             glUniformMatrix4fv(glGetUniformLocation(shader.ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -381,7 +320,7 @@ void LightManager::renderLightMarkers(Shader& shader, const glm::mat4& view, con
 std::vector<glm::vec3> LightManager::getPositionalLightPositions() const {
     std::vector<glm::vec3> positions;
     for (const auto& light : lights) {
-        if (light.isEnabled()) {  // 返回所有啟用光源的位置，不論類型
+        if (light.getType() == LightType::POSITIONAL && light.isEnabled()) {
             positions.push_back(light.getPosition());
         }
     }

@@ -30,6 +30,7 @@ add_executable(3DRender
     object.cpp
     physicManager.cpp
     light.cpp
+    Shadow.cpp
     ${IMGUI_SOURCES}
 )
 
@@ -52,6 +53,8 @@ set(RESOURCE_FILES
     picSource/container.jpg
     vertexShaderSource.vert
     fragmentShaderSource.frag
+    shadow.vert
+    shadow.frag
 )
 foreach(RESOURCE ${RESOURCE_FILES})
     configure_file(${CMAKE_SOURCE_DIR}/${RESOURCE} ${CMAKE_BINARY_DIR}/Release/${RESOURCE} COPYONLY)

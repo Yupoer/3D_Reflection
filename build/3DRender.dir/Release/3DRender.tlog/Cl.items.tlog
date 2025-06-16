@@ -6,6 +6,7 @@ C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\OBB.cpp;C:\Users\QZa\Desktop\BZ\3D 
 C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\object.cpp;C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\build\3DRender.dir\Release\object.obj
 C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\physicManager.cpp;C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\build\3DRender.dir\Release\physicManager.obj
 C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\light.cpp;C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\build\3DRender.dir\Release\light.obj
+C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\Shadow.cpp;C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\build\3DRender.dir\Release\Shadow.obj
 C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui.cpp;C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\build\3DRender.dir\Release\imgui.obj
 C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui_draw.cpp;C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\build\3DRender.dir\Release\imgui_draw.obj
 C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui_tables.cpp;C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\build\3DRender.dir\Release\imgui_tables.obj
