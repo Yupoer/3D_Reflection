@@ -115,20 +115,13 @@ void ShadowRenderer::renderShadow(const glm::mat4& modelMatrix, const glm::mat4&
     // 保存當前的 OpenGL 狀態
     GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
     GLboolean blendEnabled = glIsEnabled(GL_BLEND);
-    GLboolean stencilTestEnabled = glIsEnabled(GL_STENCIL_TEST);
-    GLint prevStencilFunc, prevStencilRef, prevStencilMask;
-    GLint prevStencilFail, prevStencilZfail, prevStencilZpass;
-    if (stencilTestEnabled) {
-        glGetIntegerv(GL_STENCIL_FUNC, &prevStencilFunc);
-        glGetIntegerv(GL_STENCIL_REF, &prevStencilRef);
-        glGetIntegerv(GL_STENCIL_VALUE_MASK, &prevStencilMask);
-        glGetIntegerv(GL_STENCIL_FAIL, &prevStencilFail);
-        glGetIntegerv(GL_STENCIL_PASS_DEPTH_FAIL, &prevStencilZfail);
-        glGetIntegerv(GL_STENCIL_PASS_DEPTH_PASS, &prevStencilZpass);
+    GLint prevBlendSrc, prevBlendDst;
+    if (blendEnabled) {
+        glGetIntegerv(GL_BLEND_SRC_ALPHA, &prevBlendSrc);
+        glGetIntegerv(GL_BLEND_DST_ALPHA, &prevBlendDst);
     }
     
-    // 簡化的平面陰影投影 - 不使用複雜的 stencil buffer 流程
-    // 啟用 alpha blending 用於陰影渲染
+    // 簡化的平面陰影投影 - 使用 alpha blending
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
@@ -163,15 +156,10 @@ void ShadowRenderer::renderShadow(const glm::mat4& modelMatrix, const glm::mat4&
     glDisable(GL_POLYGON_OFFSET_FILL);
     glDepthMask(GL_TRUE);
     
+    // 恢復 blend 狀態
     if (!blendEnabled) {
         glDisable(GL_BLEND);
-    }
-    
-    // 恢復之前的 stencil 設定
-    if (stencilTestEnabled) {
-        glStencilFunc(prevStencilFunc, prevStencilRef, prevStencilMask);
-        glStencilOp(prevStencilFail, prevStencilZfail, prevStencilZpass);
     } else {
-        glDisable(GL_STENCIL_TEST);
+        glBlendFunc(prevBlendSrc, prevBlendDst);
     }
 }

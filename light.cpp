@@ -1,57 +1,58 @@
 #include "Light.h"
-#include <imgui.h>  // Comment out if ImGui is not available
-#include <glm/gtc/type_ptr.hpp>
+#include <iostream>
 #include <GL/glew.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <imgui.h>  // Comment out if ImGui is not available
 
 // 光源標記（白點）的頂點數據 - 小立方體
 static float lightMarkerVertices[] = {
     // 前面
-    -0.1f, -0.1f, -0.1f,  0.0f, 0.0f,  0.0f, 0.0f, -1.0f,
-     0.1f, -0.1f, -0.1f,  1.0f, 0.0f,  0.0f, 0.0f, -1.0f,
-     0.1f,  0.1f, -0.1f,  1.0f, 1.0f,  0.0f, 0.0f, -1.0f,
-     0.1f,  0.1f, -0.1f,  1.0f, 1.0f,  0.0f, 0.0f, -1.0f,
-    -0.1f,  0.1f, -0.1f,  0.0f, 1.0f,  0.0f, 0.0f, -1.0f,
-    -0.1f, -0.1f, -0.1f,  0.0f, 0.0f,  0.0f, 0.0f, -1.0f,
+    -0.2f, -0.2f, -0.2f,  0.0f, 0.0f,  0.0f, 0.0f, -1.0f,
+     0.2f, -0.2f, -0.2f,  1.0f, 0.0f,  0.0f, 0.0f, -1.0f,
+     0.2f,  0.2f, -0.2f,  1.0f, 1.0f,  0.0f, 0.0f, -1.0f,
+     0.2f,  0.2f, -0.2f,  1.0f, 1.0f,  0.0f, 0.0f, -1.0f,
+    -0.2f,  0.2f, -0.2f,  0.0f, 1.0f,  0.0f, 0.0f, -1.0f,
+    -0.2f, -0.2f, -0.2f,  0.0f, 0.0f,  0.0f, 0.0f, -1.0f,
 
     // 後面
-    -0.1f, -0.1f,  0.1f,  0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
-     0.1f, -0.1f,  0.1f,  1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
-     0.1f,  0.1f,  0.1f,  1.0f, 1.0f,  0.0f, 0.0f, 1.0f,
-     0.1f,  0.1f,  0.1f,  1.0f, 1.0f,  0.0f, 0.0f, 1.0f,
-    -0.1f,  0.1f,  0.1f,  0.0f, 1.0f,  0.0f, 0.0f, 1.0f,
-    -0.1f, -0.1f,  0.1f,  0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+    -0.2f, -0.2f,  0.2f,  0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+     0.2f, -0.2f,  0.2f,  1.0f, 0.0f,  0.0f, 0.0f, 1.0f,
+     0.2f,  0.2f,  0.2f,  1.0f, 1.0f,  0.0f, 0.0f, 1.0f,
+     0.2f,  0.2f,  0.2f,  1.0f, 1.0f,  0.0f, 0.0f, 1.0f,
+    -0.2f,  0.2f,  0.2f,  0.0f, 1.0f,  0.0f, 0.0f, 1.0f,
+    -0.2f, -0.2f,  0.2f,  0.0f, 0.0f,  0.0f, 0.0f, 1.0f,
 
     // 左面
-    -0.1f,  0.1f,  0.1f,  1.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-    -0.1f,  0.1f, -0.1f,  1.0f, 1.0f, -1.0f, 0.0f, 0.0f,
-    -0.1f, -0.1f, -0.1f,  0.0f, 1.0f, -1.0f, 0.0f, 0.0f,
-    -0.1f, -0.1f, -0.1f,  0.0f, 1.0f, -1.0f, 0.0f, 0.0f,
-    -0.1f, -0.1f,  0.1f,  0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
-    -0.1f,  0.1f,  0.1f,  1.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+    -0.2f,  0.2f,  0.2f,  1.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+    -0.2f,  0.2f, -0.2f,  1.0f, 1.0f, -1.0f, 0.0f, 0.0f,
+    -0.2f, -0.2f, -0.2f,  0.0f, 1.0f, -1.0f, 0.0f, 0.0f,
+    -0.2f, -0.2f, -0.2f,  0.0f, 1.0f, -1.0f, 0.0f, 0.0f,
+    -0.2f, -0.2f,  0.2f,  0.0f, 0.0f, -1.0f, 0.0f, 0.0f,
+    -0.2f,  0.2f,  0.2f,  1.0f, 0.0f, -1.0f, 0.0f, 0.0f,
 
     // 右面
-     0.1f,  0.1f,  0.1f,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f,
-     0.1f,  0.1f, -0.1f,  1.0f, 1.0f,  1.0f, 0.0f, 0.0f,
-     0.1f, -0.1f, -0.1f,  0.0f, 1.0f,  1.0f, 0.0f, 0.0f,
-     0.1f, -0.1f, -0.1f,  0.0f, 1.0f,  1.0f, 0.0f, 0.0f,
-     0.1f, -0.1f,  0.1f,  0.0f, 0.0f,  1.0f, 0.0f, 0.0f,
-     0.1f,  0.1f,  0.1f,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f,
+     0.2f,  0.2f,  0.2f,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f,
+     0.2f,  0.2f, -0.2f,  1.0f, 1.0f,  1.0f, 0.0f, 0.0f,
+     0.2f, -0.2f, -0.2f,  0.0f, 1.0f,  1.0f, 0.0f, 0.0f,
+     0.2f, -0.2f, -0.2f,  0.0f, 1.0f,  1.0f, 0.0f, 0.0f,
+     0.2f, -0.2f,  0.2f,  0.0f, 0.0f,  1.0f, 0.0f, 0.0f,
+     0.2f,  0.2f,  0.2f,  1.0f, 0.0f,  1.0f, 0.0f, 0.0f,
 
     // 底面
-    -0.1f, -0.1f, -0.1f,  0.0f, 1.0f,  0.0f, -1.0f, 0.0f,
-     0.1f, -0.1f, -0.1f,  1.0f, 1.0f,  0.0f, -1.0f, 0.0f,
-     0.1f, -0.1f,  0.1f,  1.0f, 0.0f,  0.0f, -1.0f, 0.0f,
-     0.1f, -0.1f,  0.1f,  1.0f, 0.0f,  0.0f, -1.0f, 0.0f,
-    -0.1f, -0.1f,  0.1f,  0.0f, 0.0f,  0.0f, -1.0f, 0.0f,
-    -0.1f, -0.1f, -0.1f,  0.0f, 1.0f,  0.0f, -1.0f, 0.0f,
+    -0.2f, -0.2f, -0.2f,  0.0f, 1.0f,  0.0f, -1.0f, 0.0f,
+     0.2f, -0.2f, -0.2f,  1.0f, 1.0f,  0.0f, -1.0f, 0.0f,
+     0.2f, -0.2f,  0.2f,  1.0f, 0.0f,  0.0f, -1.0f, 0.0f,
+     0.2f, -0.2f,  0.2f,  1.0f, 0.0f,  0.0f, -1.0f, 0.0f,
+    -0.2f, -0.2f,  0.2f,  0.0f, 0.0f,  0.0f, -1.0f, 0.0f,
+    -0.2f, -0.2f, -0.2f,  0.0f, 1.0f,  0.0f, -1.0f, 0.0f,
 
     // 頂面
-    -0.1f,  0.1f, -0.1f,  0.0f, 1.0f,  0.0f, 1.0f, 0.0f,
-     0.1f,  0.1f, -0.1f,  1.0f, 1.0f,  0.0f, 1.0f, 0.0f,
-     0.1f,  0.1f,  0.1f,  1.0f, 0.0f,  0.0f, 1.0f, 0.0f,
-     0.1f,  0.1f,  0.1f,  1.0f, 0.0f,  0.0f, 1.0f, 0.0f,
-    -0.1f,  0.1f,  0.1f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
-    -0.1f,  0.1f, -0.1f,  0.0f, 1.0f,  0.0f, 1.0f, 0.0f
+    -0.2f,  0.2f, -0.2f,  0.0f, 1.0f,  0.0f, 1.0f, 0.0f,
+     0.2f,  0.2f, -0.2f,  1.0f, 1.0f,  0.0f, 1.0f, 0.0f,
+     0.2f,  0.2f,  0.2f,  1.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+     0.2f,  0.2f,  0.2f,  1.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+    -0.2f,  0.2f,  0.2f,  0.0f, 0.0f,  0.0f, 1.0f, 0.0f,
+    -0.2f,  0.2f, -0.2f,  0.0f, 1.0f,  0.0f, 1.0f, 0.0f
 };
 
 // Light 類實現
@@ -300,6 +301,38 @@ void LightManager::renderImGuiControls() {
 }
 
 void LightManager::renderLightMarkers(Shader& shader, const glm::mat4& view, const glm::mat4& projection) {
+    // 確保有位置光源需要渲染
+    bool hasPositionalLights = false;
+    for (const auto& light : lights) {
+        if (light.getType() == LightType::POSITIONAL && light.isEnabled()) {
+            hasPositionalLights = true;
+            break;
+        }
+    }
+    
+    if (!hasPositionalLights) {
+        return; // 沒有位置光源，不需要渲染
+    }
+    
+    // 檢查 VAO 是否有效
+    if (lightMarkerVAO == 0) {
+        std::cerr << "Light marker VAO not initialized" << std::endl;
+        return;
+    }
+    
+    // 保存當前的 OpenGL 狀態
+    GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
+    GLboolean blendEnabled = glIsEnabled(GL_BLEND);
+    
+    // 確保深度測試開啟（光源標記應該遵循深度）
+    glEnable(GL_DEPTH_TEST);
+    
+    // 禁用 blend，確保光源標記是純白色
+    glDisable(GL_BLEND);
+    
+    // 確保使用正確的 shader
+    shader.use();
+    
     // 設置白色顏色
     glUniform3f(glGetUniformLocation(shader.ID, "objColor"), 1.0f, 1.0f, 1.0f);
     
@@ -313,8 +346,25 @@ void LightManager::renderLightMarkers(Shader& shader, const glm::mat4& view, con
             
             glBindVertexArray(lightMarkerVAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
+            
+            // 檢查渲染錯誤
+            GLenum err = glGetError();
+            if (err != GL_NO_ERROR) {
+                std::cerr << "OpenGL Error in renderLightMarkers: " << err << std::endl;
+            }
         }
     }
+    
+    // 恢復之前的狀態
+    if (!depthTestEnabled) {
+        glDisable(GL_DEPTH_TEST);
+    }
+    if (blendEnabled) {
+        glEnable(GL_BLEND);
+    }
+    
+    // 確保解除 VAO 綁定
+    glBindVertexArray(0);
 }
 
 std::vector<glm::vec3> LightManager::getPositionalLightPositions() const {

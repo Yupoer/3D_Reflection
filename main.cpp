@@ -112,18 +112,6 @@ Object irregularObj(
     0.75f                                                          // 阻尼係數 (was 0.85f, now 0.75f for irr - larger drag)
 );
 
-// 修改球的初始化，使用新的球體建構子，加入阻尼參數
-Object ballObj(
-    0.7f,                         // 半徑
-    glm::vec3(7.0f, 6.0f, 7.0f),  // 初始位置 - Y set to 0.51f (radius + epsilon) to rest on floor
-    0.7f,                         // 質量
-    0.6f,                         // 摩擦係數
-    0.4f,                         // 彈性係數 (was 0.4f, now 0.8f for ball - higher bounce)
-    0.98f                         // 阻尼係數 (was 0.98f - less drag for ball)
-);
-
-// float gravity = 9.8f; // This global var might be unused if physicManager.gravityAcceleration is used
-
 PhysicManager physicManager(gravityStrength);
 
 #pragma region Helper Function to Create VAO and VBO
@@ -196,11 +184,9 @@ int main() {
             glfwTerminate();
             return -1;
         }        glViewport(0, 0, 1600, 1200);
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_STENCIL_TEST);  // 啟用 stencil testing
+        glEnable(GL_DEPTH_TEST);        glEnable(GL_STENCIL_TEST);  // 啟用 stencil testing
     #pragma endregion
-    
-    #pragma region Init Shadow System
+      #pragma region Init Shadow System
     // 初始化陰影系統
     ShadowRenderer shadowRenderer;
     if (!shadowRenderer.initialize("shadow.vert", "shadow.frag")) {
@@ -208,7 +194,7 @@ int main() {
     } else {
         printf("Shadow system initialized successfully\n");
     }    shadowRenderer.setGroundPlane(0.0f, 1.0f, 0.0f, 0.0f); // y = 0 平面
-    shadowRenderer.setShadowAlpha(0.4f); // 設置陰影透明度
+    shadowRenderer.setShadowAlpha(0.7f); // 設置陰影更透明，便於調試
     #pragma endregion
     
     #pragma region Init Light Manager
@@ -230,23 +216,14 @@ int main() {
     #pragma region Init Shader Program
     // load vertex and fragment shader
     Shader* myShader = new Shader("vertexShaderSource.vert", "fragmentShaderSource.frag");
-    #pragma endregion
-
-    // Room AABB 初始化
-    AABB roomAABB(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(10.0f, 10.0f, 10.0f)); 
-
+    #pragma endregion    // Room AABB 初始化
+    AABB roomAABB(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(10.0f, 10.0f, 10.0f));     
     #pragma region Init and load Model to VAO & VBO
     // room VAO & VBO
     unsigned int roomVAO, roomVBO;
-    setupModelBuffers(roomVAO, roomVBO, roomVertices, sizeof(roomVertices) / sizeof(roomVertices[0]));
-    
-    // 為 irregularVertices 物件創建 VAO 和 VBO
+    setupModelBuffers(roomVAO, roomVBO, roomVertices, sizeof(roomVertices) / sizeof(roomVertices[0]));    // 為 irregularVertices 物件創建 VAO 和 VBO
     unsigned int irregularVAO, irregularVBO;
     setupModelBuffers(irregularVAO, irregularVBO, irregularVertices, irregularCount);
-    
-    // 為 ball 物件創建 VAO 和 VBO
-    unsigned int ballVAO, ballVBO;
-    setupModelBuffers(ballVAO, ballVBO, ballVertices, ballCount);
 
     // 創建 AABB 線框的 VAO 和 VBO
     unsigned int aabbVAO, aabbVBO, aabbEBO;
@@ -288,14 +265,8 @@ int main() {
     glm::mat4 projMat = glm::mat4(1.0f);
     // 透視投影（FOV 45 度，寬高比 1600/1200，近裁剪面 0.1，遠裁剪面 100）
     projMat = glm::perspective(glm::radians(60.0f), 1600.0f / 1200.0f, 0.1f, 100.0f);
-    #pragma endregion
-    
-    // Time initialization
-    lastFrame = glfwGetTime();
-
-    // 確保初始速度為零，以實現初始靜止
-    ballObj.SetVelocity(glm::vec3(0.0f));
-    ballObj.angularVelocity = glm::vec3(0.0f);
+    #pragma endregion    // Time initialization
+    lastFrame = glfwGetTime();    // 確保初始速度為零，以實現初始靜止
     irregularObj.SetVelocity(glm::vec3(0.0f));
     irregularObj.angularVelocity = glm::vec3(0.0f);
 
@@ -338,44 +309,35 @@ int main() {
         }
         if (camera_updated) {
             camera.UpdateCameraVectors();
-            viewMat = camera.GetViewMatrix();        }
-
-        // 使用 LightManager 的 GUI 控制
+            viewMat = camera.GetViewMatrix();        }        // 使用 LightManager 的 GUI 控制
         lightManager.renderImGuiControls();
         
         ImGui::Separator();
         ImGui::Text("Shadow Controls");
         ImGui::Checkbox("Show Shadows", &showShadows);
-        /*
+        
         ImGui::Separator();
         ImGui::Text("AABB Controls");
         bool showAABB = AABB::GetShowCollisionVolumes();
         if (ImGui::Checkbox("Show AABB Wireframe", &showAABB)) {
             AABB::SetShowCollisionVolumes(showAABB);
         }
-        */
         ImGui::Text("Camera Pitch: %.2f degrees", glm::degrees(camera.Pitch));
         ImGui::Text("Camera Yaw: %.2f degrees", glm::degrees(camera.Yaw));
-        
-        ImGui::Separator();
+          ImGui::Separator();
         ImGui::Text("Physics Controls");
         ImGui::Checkbox("Pause Physics", &pausePhysics);
         ImGui::SliderFloat("Gravity", &gravityStrength, 0.0f, 20.0f);
         physicManager.gravityAcceleration = gravityStrength;
-        ImGui::SliderFloat("Angular Drag", &physicManager.angularDragCoefficient, 0.0f, 5.0f, "%.3f");
-        ImGui::SliderFloat("Ball Restitution", &ballObj.restitution, 0.0f, 1.0f, "%.2f");
-
-        if (ImGui::Button("Apply Upward Impulse to All Objects")) {
-            glm::vec3 impulse(4.0f, 10.0f, 0.0f); // Impulse vector (adjust magnitude as needed, e.g., 2.0f for noticeable effect)
-            // Apply to ballObj
-            ballObj.applyImpulse(impulse, ballObj.getWorldCenterOfMass());
+        ImGui::SliderFloat("Angular Drag", &physicManager.angularDragCoefficient, 0.0f, 5.0f, "%.3f");        if (ImGui::Button("Apply Upward Impulse to All Objects")) {
+            glm::vec3 impulse(4.0f, 10.0f, 0.0f); // Impulse vector
             // Apply to irregularObj
             irregularObj.applyImpulse(impulse, irregularObj.getWorldCenterOfMass());
-        }        if (ImGui::Button("Reset")) {
-            resetBall = true;
-            ballObj.reset();
+        }
+          if (ImGui::Button("Reset All Objects")) {
             resetIrregular = true;
-            irregularObj.reset();        }
+            irregularObj.reset();
+        }
         
         ImGui::End();
         #pragma endregion        // 設置視口為整個窗口
@@ -410,32 +372,27 @@ int main() {
 
         glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(irregularModelMat));
         glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
-        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
-        glBindVertexArray(irregularVAO);
-        glDrawArrays(GL_TRIANGLES, 0, irregularCount);
-
+        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));        glBindVertexArray(irregularVAO);
+        glDrawArrays(GL_TRIANGLES, 0, irregularCount);        
+        
         // 繪製 OBB
         glUseProgram(myShader->ID);
         OBB::DrawOBB(irregularObj.GetOBB(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
-        #pragma endregion
-
-        #pragma region Draw Ball Object
-        glUniform3f(glGetUniformLocation(myShader->ID, "objColor"), 0.8f, 0.2f, 0.2f); 
-        glm::mat4 ballModelMat = glm::translate(glm::mat4(1.0f), ballObj.GetPosition());
-        ballModelMat = ballModelMat * glm::mat4_cast(ballObj.GetRotation());
-        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(ballModelMat));
-        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
-        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
-        glBindVertexArray(ballVAO);
-        glDrawArrays(GL_TRIANGLES, 0, ballCount);        // 繪製 Bounding Sphere
-        glUseProgram(myShader->ID);        // Draw the bounding sphere for the ball object
-        AABB::DrawWireSphere(ballObj.GetBoundingSphere(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
+        #pragma endregion        
+        #pragma region Draw Other Collision Volumes
+        // Draw the AABB for the room
+        AABB::DrawAABB(roomAABB, myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
+        glUniform1i(glGetUniformLocation(myShader->ID, "isAABB"), 0);
         
-        // Draw the OBB for the irregular object
-        OBB::DrawOBB(irregularObj.GetOBB(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
-        AABB::DrawAABB(roomAABB, myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());glUniform1i(glGetUniformLocation(myShader->ID, "isAABB"), 0);
-        #pragma endregion
-          #pragma region Render Shadows
+        // 檢查 OpenGL 錯誤
+        {
+            GLenum err;
+            while ((err = glGetError()) != GL_NO_ERROR) {
+                std::cerr << "OpenGL Error after drawing collision volumes: " << err << std::endl;
+            }
+        }
+        #pragma endregion                  
+        #pragma region Render Shadows
         shadowRenderer.setEnabled(showShadows);
         if (showShadows && shadowRenderer.isEnabled()) {
             // 使用 LightManager 中的第一個光源進行陰影投射
@@ -444,17 +401,19 @@ int main() {
                 if (light.isEnabled()) {
                     // 渲染不規則物體的陰影
                     shadowRenderer.renderShadow(irregularModelMat, viewMat, projMat, irregularVAO, irregularCount, light);
-                    // 渲染球體的陰影
-                    shadowRenderer.renderShadow(ballModelMat, viewMat, projMat, ballVAO, ballCount, light);
                 }
             }
-        }        
+        }
         #pragma endregion
+          #pragma region Render Light Markers (Small white dots for positional lights)
+        // 確保使用正確的 shader 並設置正確的 uniforms
+        myShader->use();
+        glUniform1i(glGetUniformLocation(myShader->ID, "isRoom"), 0);
+        glUniform1i(glGetUniformLocation(myShader->ID, "isAABB"), 0);
         
-        #pragma region Render Light Markers (Small white dots for positional lights)
         // 渲染位置光源的小白點標記（只有 Positional 光源才顯示）
         lightManager.renderLightMarkers(*myShader, viewMat, projMat);
-        #pragma endregion          glBindVertexArray(0);
+        #pragma endregionglBindVertexArray(0);
         
         // 檢查 OpenGL 錯誤 (只在 debug 模式下或需要時啟用)
         #ifdef DEBUG_OPENGL_ERRORS
@@ -465,14 +424,11 @@ int main() {
             }
         }
         #endif
-        
-        #pragma region Render ImGui
+          #pragma region Render ImGui
         ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        #pragma endregion
-
-        // 物理模擬交給 PhysicManager
-        std::vector<Object*> objects = { &irregularObj, &ballObj };
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());        
+        #pragma endregion        // 物理模擬
+        std::vector<Object*> objects = { &irregularObj };
         physicManager.pausePhysics = pausePhysics; // 同步暫停狀態
         physicManager.update(objects, roomAABB, deltaTime);
 
