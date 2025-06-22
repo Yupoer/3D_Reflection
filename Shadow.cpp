@@ -74,8 +74,6 @@ glm::mat4 ShadowRenderer::buildShadowProjectionMatrix(const glm::vec3& lightPos,
             virtualLightPos.y = 50.0f; 
         }
         
-        std::cout << "Directional light shadow: lightDir(" << lightDir.x << ", " << lightDir.y << ", " << lightDir.z 
-                  << ") virtualPos(" << virtualLightPos.x << ", " << virtualLightPos.y << ", " << virtualLightPos.z << ")" << std::endl;
         
         return ShadowManager::buildShadowMatrix(virtualLightPos, plane);
     } else {
@@ -85,7 +83,6 @@ glm::mat4 ShadowRenderer::buildShadowProjectionMatrix(const glm::vec3& lightPos,
             adjustedLightPos.y = 1.0f; // 最小高度
         }
         
-        std::cout << "Positional light shadow: lightPos(" << adjustedLightPos.x << ", " << adjustedLightPos.y << ", " << adjustedLightPos.z << ")" << std::endl;
         
         return ShadowManager::buildShadowMatrix(adjustedLightPos, plane);
     }
