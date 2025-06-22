@@ -1,6 +1,6 @@
-^C:\USERS\QZA\DESKTOP\BZ\3D ENGINE\REFLECTION\CMAKELISTS.TXT
+^C:\USERS\QZA\DESKTOP\BZ\3D ENGINE\SHADOW\CMAKELISTS.TXT
 setlocal
-"C:\Program Files\CMake\bin\cmake.exe" "-SC:/Users/QZa/Desktop/BZ/3D Engine/Reflection" "-BC:/Users/QZa/Desktop/BZ/3D Engine/Reflection/build" --check-stamp-file "C:/Users/QZa/Desktop/BZ/3D Engine/Reflection/build/CMakeFiles/generate.stamp"
+"C:\Program Files\CMake\bin\cmake.exe" "-SC:/Users/QZa/Desktop/BZ/3D Engine/shadow" "-BC:/Users/QZa/Desktop/BZ/3D Engine/shadow/build" --check-stamp-file "C:/Users/QZa/Desktop/BZ/3D Engine/shadow/build/CMakeFiles/generate.stamp"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

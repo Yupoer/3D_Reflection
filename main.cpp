@@ -23,10 +23,10 @@
 #include "physicManager.h"
 #include "Shadow.h"
 #include "light.h"
+#include "Reflection.h"
 
 // AABB 線框的頂點數據
 float aabbVertices[] = {
-    // 前面
     -0.5f, -0.5f, -0.5f,
      0.5f, -0.5f, -0.5f,
      0.5f,  0.5f, -0.5f,
@@ -51,6 +51,21 @@ unsigned int aabbIndices[] = {
 // Forward declare apply_impulse_to_objects function if it's defined later or in another file
 // For now, we will define a simple version or handle input directly in processInput
 void apply_external_force_to_objects(Object& ball, Object& irregular, bool& shouldApply);
+
+// Forward declare rendering functions
+void renderScene(Shader* shader, const glm::mat4& viewMat, const glm::mat4& projMat, 
+                const glm::mat4& modelMat, const Camera& camera, LightManager& lightManager,
+                unsigned int roomVAO, unsigned int irregularVAO, int irregularCount,
+                unsigned int TexBufferA, const Object& irregularObj, bool isReflection = false,
+                const glm::mat4* reflectionMatrix = nullptr);
+
+void renderFloorStencil(Shader* shader, const glm::mat4& viewMat, const glm::mat4& projMat,
+                       const glm::mat4& modelMat, unsigned int roomVAO);
+
+void renderReflectedObjects(Shader* shader, const glm::mat4& viewMat, const glm::mat4& projMat,
+                           const Camera& camera, LightManager& lightManager,
+                           unsigned int irregularVAO, int irregularCount,
+                           const Object& irregularObj, const glm::mat4& reflectionMatrix);
 
 void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -100,6 +115,7 @@ float gravityStrength = 9.8f;
 bool resetBall = false;
 bool resetIrregular = false;
 bool showShadows = true; // Toggle for shadows
+bool showReflections = true; // Toggle for reflections
 
 // 修改 Object 初始化，加入阻尼參數
 Object irregularObj(
@@ -184,7 +200,11 @@ int main() {
             glfwTerminate();
             return -1;
         }        glViewport(0, 0, 1600, 1200);
-        glEnable(GL_DEPTH_TEST);        glEnable(GL_STENCIL_TEST);  // 啟用 stencil testing
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_STENCIL_TEST);  // 啟用 stencil testing
+        
+        // 禁用面剔除，這樣在房間內部也能看到牆壁
+        glDisable(GL_CULL_FACE);
     #pragma endregion
       #pragma region Init Shadow System
     // 初始化陰影系統
@@ -195,6 +215,18 @@ int main() {
         printf("Shadow system initialized successfully\n");
     }    shadowRenderer.setGroundPlane(0.0f, 1.0f, 0.0f, 0.0f); // y = 0 平面
     shadowRenderer.setShadowAlpha(0.7f); // 設置陰影更透明，便於調試
+    #pragma endregion
+    
+    #pragma region Init Reflection System
+    // 初始化反射系統
+    ReflectionRenderer reflectionRenderer;
+    if (!reflectionRenderer.initialize()) {
+        printf("Failed to initialize reflection system\n");
+    } else {
+        printf("Reflection system initialized successfully\n");
+    }
+    reflectionRenderer.setReflectionPlane(0.0f); // 反射平面在 y = 0
+    reflectionRenderer.setReflectionAlpha(0.6f); // 設置反射透明度
     #pragma endregion
     
     #pragma region Init Light Manager
@@ -311,10 +343,20 @@ int main() {
             camera.UpdateCameraVectors();
             viewMat = camera.GetViewMatrix();        }        // 使用 LightManager 的 GUI 控制
         lightManager.renderImGuiControls();
-        
-        ImGui::Separator();
+          ImGui::Separator();
         ImGui::Text("Shadow Controls");
         ImGui::Checkbox("Show Shadows", &showShadows);
+        
+        ImGui::Separator();
+        ImGui::Text("Reflection Controls");
+        ImGui::Checkbox("Show Reflections", &showReflections);
+        reflectionRenderer.setEnabled(showReflections);
+        if (showReflections) {
+            float reflectionAlpha = 0.6f;
+            if (ImGui::SliderFloat("Reflection Alpha", &reflectionAlpha, 0.1f, 1.0f)) {
+                reflectionRenderer.setReflectionAlpha(reflectionAlpha);
+            }
+        }
         
         ImGui::Separator();
         ImGui::Text("AABB Controls");
@@ -343,62 +385,124 @@ int main() {
         #pragma endregion        // 設置視口為整個窗口
         glViewport(0, 0, 1600, 1200);
         myShader->use();
-        glUniform3f(glGetUniformLocation(myShader->ID, "ambientColor"), 1.0f, 1.0f, 1.0f);
+        glUniform3f(glGetUniformLocation(myShader->ID, "ambientColor"), 1.0f, 1.0f, 1.0f);        
+        #pragma region Reflection and Scene Rendering
+        
+        // 第一步：直接渲染正常場景（房間和物件），不使用複雜的 renderScene 函數
+        myShader->use();
         
         // 使用 LightManager 應用光源到 shader
         lightManager.applyAllLightsToShader(*myShader);
+        glUniform3f(glGetUniformLocation(myShader->ID, "cameraPos"), camera.Position.x, camera.Position.y, camera.Position.z);
+        glUniform1i(glGetUniformLocation(myShader->ID, "isReflection"), 0);
 
-        #pragma region Create room   
+        // 渲染房間
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, TexBufferA);
         glUniform1i(glGetUniformLocation(myShader->ID, "roomTex"), 0);
         glUniform1i(glGetUniformLocation(myShader->ID, "isRoom"), 1);
         glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(modelMat));
         glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
-        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat)); // 透視投影
+        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
         glUniform3f(glGetUniformLocation(myShader->ID, "objColor"), 0.5f, 0.5f, 0.5f);
-        glUniform3f(glGetUniformLocation(myShader->ID, "cameraPos"), camera.Position.x, camera.Position.y, camera.Position.z);
         glBindVertexArray(roomVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
-        #pragma endregion
 
         glUniform1i(glGetUniformLocation(myShader->ID, "isRoom"), 0);
-        glUniform1i(glGetUniformLocation(myShader->ID, "isAABB"), 0);
 
-        #pragma region Draw Irregular Object
-        glUniform3f(glGetUniformLocation(myShader->ID, "objColor"), 0.8f, 0.2f, 0.2f); // 紅色
+        // 渲染不規則物體
+        glUniform3f(glGetUniformLocation(myShader->ID, "objColor"), 0.8f, 0.2f, 0.2f);
         glm::mat4 irregularModelMat = glm::translate(glm::mat4(1.0f), irregularObj.GetPosition());
         irregularModelMat = irregularModelMat * glm::mat4_cast(irregularObj.GetRotation());
-
         glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(irregularModelMat));
         glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
-        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));        glBindVertexArray(irregularVAO);
-        glDrawArrays(GL_TRIANGLES, 0, irregularCount);        
+        glUniformMatrix4fv(glGetUniformLocation(myShader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
+        glBindVertexArray(irregularVAO);        glDrawArrays(GL_TRIANGLES, 0, irregularCount);
         
+        // 第二步：如果啟用反射，渲染反射物件
+        if (showReflections && reflectionRenderer.isEnabled()) {
+            // Debug: 檢查反射是否被啟用
+            static bool debugOnce = true;
+            if (debugOnce) {
+                printf("Reflection rendering enabled\n");
+                debugOnce = false;
+            }
+            
+            // 第二步：設置 stencil buffer 來限制反射區域
+            glEnable(GL_STENCIL_TEST);
+            
+            // 清除 stencil buffer
+            glClear(GL_STENCIL_BUFFER_BIT);
+            
+            // 在 stencil buffer 中標記地板
+            glStencilFunc(GL_ALWAYS, 1, 0xFF);
+            glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+            
+            // 只更新 stencil，不寫入顏色或深度
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+            glDepthMask(GL_FALSE);
+            
+            // 渲染地板到 stencil buffer
+            renderFloorStencil(myShader, viewMat, projMat, modelMat, roomVAO);
+            
+            // 恢復顏色和深度寫入
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glDepthMask(GL_TRUE);
+              // 第三步：只在地板區域渲染反射物件
+            glStencilFunc(GL_EQUAL, 1, 0xFF);
+            glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+            
+            // 啟用混合來讓反射有透明效果
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            
+            // 關鍵修正：修改深度測試設置，讓反射物件能正確顯示在地板上
+            glDepthFunc(GL_LEQUAL);  // 改為小於等於，允許相同深度的像素通過
+            
+            // 暫時啟用面剔除並反轉（只對反射物件）
+            bool cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
+            glEnable(GL_CULL_FACE);
+            glCullFace(GL_FRONT);  // 反轉面剔除
+            
+            // 渲染反射物件
+            glm::mat4 reflectionMatrix = reflectionRenderer.getReflectionMatrix();
+            renderReflectedObjects(myShader, viewMat, projMat, camera, lightManager,
+                                 irregularVAO, irregularCount, irregularObj, reflectionMatrix);
+            
+            // 恢復原始狀態
+            glDepthFunc(GL_LESS);  // 恢復正常深度測試
+            if (!cullFaceWasEnabled) {
+                glDisable(GL_CULL_FACE);
+            } else {
+                glCullFace(GL_BACK);  // 恢復正常面剔除
+            }
+            
+            glDisable(GL_BLEND);
+            glDisable(GL_STENCIL_TEST);
+        }
+        
+        #pragma endregion
+        
+        #pragma region Draw Other Collision Volumes
         // 繪製 OBB
         glUseProgram(myShader->ID);
         OBB::DrawOBB(irregularObj.GetOBB(), myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
-        #pragma endregion        
-        #pragma region Draw Other Collision Volumes
+        
         // Draw the AABB for the room
         AABB::DrawAABB(roomAABB, myShader->ID, aabbVAO, AABB::GetShowCollisionVolumes());
         glUniform1i(glGetUniformLocation(myShader->ID, "isAABB"), 0);
-        
-        // 檢查 OpenGL 錯誤
-        {
-            GLenum err;
-            while ((err = glGetError()) != GL_NO_ERROR) {
-                std::cerr << "OpenGL Error after drawing collision volumes: " << err << std::endl;
-            }
-        }
         #pragma endregion                  
-        #pragma region Render Shadows
+          #pragma region Render Shadows
         shadowRenderer.setEnabled(showShadows);
         if (showShadows && shadowRenderer.isEnabled()) {
-            // 使用 LightManager 中的第一個光源進行陰影投射
-            if (lightManager.getLightCount() > 0) {
-                const Light& light = lightManager.getLight(0);
+            // 遍歷所有光源進行陰影投射
+            for (size_t i = 0; i < lightManager.getLightCount(); ++i) {
+                const Light& light = lightManager.getLight(i);
                 if (light.isEnabled()) {
+                    // 計算不規則物體的模型矩陣（用於陰影）
+                    glm::mat4 irregularModelMat = glm::translate(glm::mat4(1.0f), irregularObj.GetPosition());
+                    irregularModelMat = irregularModelMat * glm::mat4_cast(irregularObj.GetRotation());
+                    
                     // 渲染不規則物體的陰影
                     shadowRenderer.renderShadow(irregularModelMat, viewMat, projMat, irregularVAO, irregularCount, light);
                 }
@@ -446,4 +550,140 @@ int main() {
 
     glfwTerminate();
     return 0;
+}
+
+// 渲染場景函數（用於正常渲染和反射渲染）
+void renderScene(Shader* shader, const glm::mat4& viewMat, const glm::mat4& projMat, 
+                const glm::mat4& modelMat, const Camera& camera, LightManager& lightManager,
+                unsigned int roomVAO, unsigned int irregularVAO, int irregularCount,
+                unsigned int TexBufferA, const Object& irregularObj, bool isReflection,
+                const glm::mat4* reflectionMatrix) {
+    
+    shader->use();
+    
+    // 設置光源
+    lightManager.applyAllLightsToShader(*shader);
+    glUniform3f(glGetUniformLocation(shader->ID, "ambientColor"), 1.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(shader->ID, "cameraPos"), camera.Position.x, camera.Position.y, camera.Position.z);
+    
+    // 如果是反射渲染，設置透明度
+    if (isReflection) {
+        glUniform1f(glGetUniformLocation(shader->ID, "reflectionAlpha"), 0.6f);
+        glUniform1i(glGetUniformLocation(shader->ID, "isReflection"), 1);
+    } else {
+        glUniform1i(glGetUniformLocation(shader->ID, "isReflection"), 0);
+    }
+    
+    // 渲染房間（在反射中跳過地板）
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, TexBufferA);
+    glUniform1i(glGetUniformLocation(shader->ID, "roomTex"), 0);
+    glUniform1i(glGetUniformLocation(shader->ID, "isRoom"), 1);
+    
+    glm::mat4 finalModelMat = modelMat;
+    if (isReflection && reflectionMatrix) {
+        finalModelMat = (*reflectionMatrix) * modelMat;
+    }
+    
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(finalModelMat));
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
+    glUniform3f(glGetUniformLocation(shader->ID, "objColor"), 0.5f, 0.5f, 0.5f);
+    
+    glBindVertexArray(roomVAO);
+    
+    if (isReflection) {
+        // 反射時只渲染房間的牆壁，不渲染地板
+        // 前面 (0-5)
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // 後面 (6-11)  
+        glDrawArrays(GL_TRIANGLES, 6, 6);
+        // 上面 (12-17)
+        glDrawArrays(GL_TRIANGLES, 12, 6);
+        // 右面 (24-29)
+        glDrawArrays(GL_TRIANGLES, 24, 6);
+        // 左面 (30-35)
+        glDrawArrays(GL_TRIANGLES, 30, 6);
+        // 跳過地板 (18-23)
+    } else {
+        // 正常渲染房間的所有面
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    }
+    
+    glUniform1i(glGetUniformLocation(shader->ID, "isRoom"), 0);
+    
+    // 渲染不規則物體
+    glUniform3f(glGetUniformLocation(shader->ID, "objColor"), 0.8f, 0.2f, 0.2f);
+    glm::mat4 irregularModelMat = glm::translate(glm::mat4(1.0f), irregularObj.GetPosition());
+    irregularModelMat = irregularModelMat * glm::mat4_cast(irregularObj.GetRotation());
+    
+    if (isReflection && reflectionMatrix) {
+        irregularModelMat = (*reflectionMatrix) * irregularModelMat;
+    }
+    
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(irregularModelMat));
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
+    
+    glBindVertexArray(irregularVAO);
+    glDrawArrays(GL_TRIANGLES, 0, irregularCount);
+}
+
+// 渲染地板到 stencil buffer
+void renderFloorStencil(Shader* shader, const glm::mat4& viewMat, const glm::mat4& projMat,
+                       const glm::mat4& modelMat, unsigned int roomVAO) {
+    shader->use();
+    
+    // 設置基本 uniform
+    glUniform1i(glGetUniformLocation(shader->ID, "isRoom"), 0);
+    glUniform1i(glGetUniformLocation(shader->ID, "isAABB"), 0);
+    glUniform1i(glGetUniformLocation(shader->ID, "isReflection"), 0);
+    
+    // 設置矩陣
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(modelMat));
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
+    
+    glBindVertexArray(roomVAO);
+    
+    // 渲染地板面（下面，法線向下 y = -1）
+    // 房間結構：前面(0-5), 後面(6-11), 上面(12-17), 下面(18-23), 右面(24-29), 左面(30-35)
+    glDrawArrays(GL_TRIANGLES, 18, 6); // 地板是下面，從索引 18 開始，6個頂點
+}
+
+// 渲染反射物件函數
+void renderReflectedObjects(Shader* shader, const glm::mat4& viewMat, const glm::mat4& projMat, 
+                          const Camera& camera, LightManager& lightManager,
+                          unsigned int irregularVAO, int irregularCount,
+                          const Object& irregularObj, const glm::mat4& reflectionMatrix) {
+    
+    shader->use();
+    
+    // 設置光源
+    lightManager.applyAllLightsToShader(*shader);
+    glUniform3f(glGetUniformLocation(shader->ID, "ambientColor"), 1.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(shader->ID, "cameraPos"), camera.Position.x, camera.Position.y, camera.Position.z);
+    
+    // 設置反射渲染參數
+    glUniform1f(glGetUniformLocation(shader->ID, "reflectionAlpha"), 0.6f);
+    glUniform1i(glGetUniformLocation(shader->ID, "isReflection"), 1);
+    glUniform1i(glGetUniformLocation(shader->ID, "isRoom"), 0);
+    
+    // 渲染反射的不規則物體
+    glUniform3f(glGetUniformLocation(shader->ID, "objColor"), 0.8f, 0.2f, 0.2f);
+      // 計算反射後的模型矩陣，並稍微向上偏移避免 z-fighting
+    glm::mat4 irregularModelMat = glm::translate(glm::mat4(1.0f), irregularObj.GetPosition());
+    irregularModelMat = irregularModelMat * glm::mat4_cast(irregularObj.GetRotation());
+    glm::mat4 reflectedModelMat = reflectionMatrix * irregularModelMat;
+    
+    // 關鍵修正：將反射物件稍微向上偏移，避免與地板 z-fighting
+    glm::mat4 offsetMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.01f, 0.0f));
+    reflectedModelMat = offsetMat * reflectedModelMat;
+    
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "modelMat"), 1, GL_FALSE, glm::value_ptr(reflectedModelMat));
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "viewMat"), 1, GL_FALSE, glm::value_ptr(viewMat));
+    glUniformMatrix4fv(glGetUniformLocation(shader->ID, "projMat"), 1, GL_FALSE, glm::value_ptr(projMat));
+    
+    glBindVertexArray(irregularVAO);
+    glDrawArrays(GL_TRIANGLES, 0, irregularCount);
 }

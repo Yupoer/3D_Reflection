@@ -27,10 +27,10 @@ add_executable(3DRender
     Camera.cpp
     AABB.cpp
     OBB.cpp
-    object.cpp
-    physicManager.cpp
+    object.cpp    physicManager.cpp
     light.cpp
     Shadow.cpp
+    Reflection.cpp
     ${IMGUI_SOURCES}
 )
 

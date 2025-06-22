@@ -11,6 +11,8 @@ uniform sampler2D roomTex;
 uniform bool isRoom;
 uniform bool isbox;
 uniform bool isAABB;
+uniform bool isReflection;   // 新增：是否為反射渲染
+uniform float reflectionAlpha; // 新增：反射透明度
 uniform vec3 objColor;       // 用於 'else' 分支的物件
 uniform vec3 ambientColor;   // 用於 'else' 分支的光照
 uniform vec3 lightPos;       // 用於 'else' 分支的光照
@@ -32,10 +34,12 @@ void main()
         float MixFactor = 0.2;                       // 20% 的白色混合進來 (即 80% 紋理 + 20% 白色)
                                                      // mix(A, B, factor) = A*(1-factor) + B*factor
                                                      // 所以 mix(texColor.rgb, white_rgb, 0.2) = texColor.rgb * 0.8 + white_rgb * 0.2
-        vec3 mixedColor = mix(texColor.rgb, white_rgb, MixFactor);
-
-        // 如果房間不受光照影響，直接輸出混合顏色
-        FragColor = vec4(mixedColor, texColor.a);
+        vec3 mixedColor = mix(texColor.rgb, white_rgb, MixFactor);        // 如果房間不受光照影響，直接輸出混合顏色
+        if (isReflection) {
+            FragColor = vec4(mixedColor, texColor.a * reflectionAlpha);
+        } else {
+            FragColor = vec4(mixedColor, texColor.a);
+        }
 
         // 如果你想讓房間也受一點點整體亮度的影響，可以這樣 (但不是完整的Phong光照):
         // float roomBrightness = 1.0; // 可以是一個 uniform 或者固定值
@@ -75,10 +79,13 @@ void main()
         if (light1Enabled) {
             result += diffuse + specular;
         }
-        if (light2Enabled) {
-            result += diffuse2 + specular2;
+        if (light2Enabled) {            result += diffuse2 + specular2;
         }
 
-        FragColor = vec4(result, 1.0);
+        if (isReflection) {
+            FragColor = vec4(result, reflectionAlpha);
+        } else {
+            FragColor = vec4(result, 1.0);
+        }
     }
 }

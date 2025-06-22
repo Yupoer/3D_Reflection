@@ -1,58 +1,61 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\main.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\Shader.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\Shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\Camera.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\AABB.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\AABB.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\OBB.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\OBB.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\object.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\object.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\physicManager.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\physicManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\light.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\light.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\Shadow.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\Shadow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\Reflection.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui_draw.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui_tables.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\imgui\imgui_draw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui_widgets.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\imgui\imgui_tables.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui_impl_glfw.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\imgui\imgui_widgets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\imgui\imgui_impl_opengl3.cpp">
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\imgui\imgui_impl_glfw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\imgui\imgui_impl_opengl3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="C:\Users\QZa\Desktop\BZ\3D Engine\Reflection\CMakeLists.txt" />
+    <CustomBuild Include="C:\Users\QZa\Desktop\BZ\3D Engine\shadow\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{E3F58549-5EA3-3F21-AA68-A2E6A58C7542}</UniqueIdentifier>
+      <UniqueIdentifier>{87E3DCF5-A767-3437-973D-A66811B78013}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

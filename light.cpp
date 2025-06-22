@@ -198,7 +198,7 @@ void Light::renderImGuiControls(const std::string& lightName, bool isSelected) {
 // LightManager 類實現
 LightManager::LightManager() : lightMarkerVAO(0), lightMarkerVBO(0) {
     // 添加預設光源，顏色為白色 (1,1,1)
-    addPositionalLight(glm::vec3(2.0f, 8.0f, 2.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+    addPositionalLight(glm::vec3(5.0f, 5.0f, 7.0f), glm::vec3(1.0f, 1.0f, 1.0f));
     addDirectionalLight(glm::vec3(-0.2f, -1.0f, -0.3f), glm::vec3(1.0f, 1.0f, 1.0f));
     
     initLightMarkerBuffers();
@@ -329,12 +329,14 @@ void LightManager::renderLightMarkers(Shader& shader, const glm::mat4& view, con
     
     // 禁用 blend，確保光源標記是純白色
     glDisable(GL_BLEND);
-    
-    // 確保使用正確的 shader
+      // 確保使用正確的 shader
     shader.use();
     
     // 設置白色顏色
     glUniform3f(glGetUniformLocation(shader.ID, "objColor"), 1.0f, 1.0f, 1.0f);
+    glUniform1i(glGetUniformLocation(shader.ID, "isRoom"), 0);
+    glUniform1i(glGetUniformLocation(shader.ID, "isAABB"), 0);
+    glUniform1i(glGetUniformLocation(shader.ID, "isReflection"), 0);
     
     // 渲染所有位置光源的標記
     for (const auto& light : lights) {
@@ -346,12 +348,6 @@ void LightManager::renderLightMarkers(Shader& shader, const glm::mat4& view, con
             
             glBindVertexArray(lightMarkerVAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
-            
-            // 檢查渲染錯誤
-            GLenum err = glGetError();
-            if (err != GL_NO_ERROR) {
-                std::cerr << "OpenGL Error in renderLightMarkers: " << err << std::endl;
-            }
         }
     }
     

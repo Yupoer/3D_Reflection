@@ -70,9 +70,12 @@ glm::mat4 ShadowRenderer::buildShadowProjectionMatrix(const glm::vec3& lightPos,
         // 創建一個遠距離的虛擬光源位置，確保在場景上方
         glm::vec3 virtualLightPos = -lightDir * 100.0f;
         // 確保虛擬光源在地面上方
-        if (virtualLightPos.y < 1.0f) {
+        if (virtualLightPos.y < 10.0f) {
             virtualLightPos.y = 50.0f; 
         }
+        
+        std::cout << "Directional light shadow: lightDir(" << lightDir.x << ", " << lightDir.y << ", " << lightDir.z 
+                  << ") virtualPos(" << virtualLightPos.x << ", " << virtualLightPos.y << ", " << virtualLightPos.z << ")" << std::endl;
         
         return ShadowManager::buildShadowMatrix(virtualLightPos, plane);
     } else {
@@ -81,6 +84,9 @@ glm::mat4 ShadowRenderer::buildShadowProjectionMatrix(const glm::vec3& lightPos,
         if (adjustedLightPos.y <= 0.1f) {
             adjustedLightPos.y = 1.0f; // 最小高度
         }
+        
+        std::cout << "Positional light shadow: lightPos(" << adjustedLightPos.x << ", " << adjustedLightPos.y << ", " << adjustedLightPos.z << ")" << std::endl;
+        
         return ShadowManager::buildShadowMatrix(adjustedLightPos, plane);
     }
 }
